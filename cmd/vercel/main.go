@@ -1,5 +1,5 @@
-// Package main provides a command-line tool to fetch models from Vercel AI Gateway
-// and generate a configuration file for the provider.
+// Package main 提供了一个命令行工具，用于从 Vercel AI Gateway 获取模型
+// 并为提供程序生成配置文件。
 package main
 
 import (
@@ -15,10 +15,10 @@ import (
 	"strings"
 	"time"
 
-	"charm.land/catwalk/pkg/catwalk"
+	"github.com/purpose168/catwalk-cn/pkg/catwalk"
 )
 
-// Model represents a model from the Vercel API.
+// Model 表示来自 Vercel API 的模型。
 type Model struct {
 	ID            string   `json:"id"`
 	Object        string   `json:"object"`
@@ -33,7 +33,7 @@ type Model struct {
 	Pricing       Pricing  `json:"pricing"`
 }
 
-// Pricing contains the pricing information for a model.
+// Pricing 包含模型的定价信息。
 type Pricing struct {
 	Input           string `json:"input,omitempty"`
 	Output          string `json:"output,omitempty"`
@@ -43,12 +43,13 @@ type Pricing struct {
 	Image           string `json:"image,omitempty"`
 }
 
-// ModelsResponse is the response structure for the Vercel models API.
+// ModelsResponse 是 Vercel 模型 API 的响应结构。
 type ModelsResponse struct {
 	Object string  `json:"object"`
 	Data   []Model `json:"data"`
 }
 
+// fetchVercelModels 获取 Vercel 模型列表
 func fetchVercelModels() (*ModelsResponse, error) {
 	client := &http.Client{Timeout: 30 * time.Second}
 	req, _ := http.NewRequestWithContext(
@@ -65,7 +66,7 @@ func fetchVercelModels() (*ModelsResponse, error) {
 	defer resp.Body.Close() //nolint:errcheck
 	if resp.StatusCode != 200 {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("status %d: %s", resp.StatusCode, body)
+		return nil, fmt.Errorf("状态码 %d: %s", resp.StatusCode, body)
 	}
 	var mr ModelsResponse
 	if err := json.NewDecoder(resp.Body).Decode(&mr); err != nil {
@@ -77,7 +78,7 @@ func fetchVercelModels() (*ModelsResponse, error) {
 func main() {
 	modelsResp, err := fetchVercelModels()
 	if err != nil {
-		log.Fatal("Error fetching Vercel models:", err)
+		log.Fatal("获取 Vercel 模型时出错:", err)
 	}
 
 	vercelProvider := catwalk.Provider{
@@ -96,17 +97,17 @@ func main() {
 	}
 
 	for _, model := range modelsResp.Data {
-		// Only include language models, skip embedding and image models
+		// 只包含语言模型，跳过嵌入和图像模型
 		if model.Type != "language" {
 			continue
 		}
 
-		// Skip models without tool support
+		// 跳过不支持工具的模型
 		if !slices.Contains(model.Tags, "tool-use") {
 			continue
 		}
 
-		// Parse pricing
+		// 解析定价
 		costPer1MIn := 0.0
 		costPer1MOut := 0.0
 		costPer1MInCached := 0.0
@@ -140,25 +141,25 @@ func main() {
 			}
 		}
 
-		// Check if model supports reasoning
+		// 检查模型是否支持推理
 		canReason := slices.Contains(model.Tags, "reasoning")
 
 		var reasoningLevels []string
 		var defaultReasoning string
 		if canReason {
-			// Base reasoning levels supported by most providers
+			// 大多数提供商支持的基础推理级别
 			reasoningLevels = []string{"low", "medium", "high"}
-			// Anthropic models support extended Vercel reasoning levels
+			// Anthropic 模型支持扩展的 Vercel 推理级别
 			if strings.HasPrefix(model.ID, "anthropic/") {
 				reasoningLevels = []string{"none", "minimal", "low", "medium", "high", "xhigh"}
 			}
 			defaultReasoning = "medium"
 		}
 
-		// Check if model supports images
+		// 检查模型是否支持图像
 		supportsImages := slices.Contains(model.Tags, "vision")
 
-		// Calculate default max tokens
+		// 计算默认最大令牌数
 		defaultMaxTokens := model.MaxTokens
 		if defaultMaxTokens == 0 {
 			defaultMaxTokens = model.ContextWindow / 10
@@ -183,22 +184,22 @@ func main() {
 		}
 
 		vercelProvider.Models = append(vercelProvider.Models, m)
-		fmt.Printf("Added model %s with context window %d\n", model.ID, model.ContextWindow)
+		fmt.Printf("已添加模型 %s，上下文窗口为 %d\n", model.ID, model.ContextWindow)
 	}
 
 	slices.SortFunc(vercelProvider.Models, func(a catwalk.Model, b catwalk.Model) int {
 		return strings.Compare(a.Name, b.Name)
 	})
 
-	// Save the JSON in internal/providers/configs/vercel.json
+	// 将 JSON 保存到 internal/providers/configs/vercel.json
 	data, err := json.MarshalIndent(vercelProvider, "", "  ")
 	if err != nil {
-		log.Fatal("Error marshaling Vercel provider:", err)
+		log.Fatal("序列化 Vercel 提供程序时出错:", err)
 	}
 
 	if err := os.WriteFile("internal/providers/configs/vercel.json", data, 0o600); err != nil {
-		log.Fatal("Error writing Vercel provider config:", err)
+		log.Fatal("写入 Vercel 提供程序配置时出错:", err)
 	}
 
-	fmt.Printf("Generated vercel.json with %d models\n", len(vercelProvider.Models))
+	fmt.Printf("已生成 vercel.json，包含 %d 个模型\n", len(vercelProvider.Models))
 }

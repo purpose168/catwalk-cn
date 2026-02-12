@@ -2,30 +2,23 @@
 
 <img width="297" height="250" alt="catwalk-header" src="https://github.com/user-attachments/assets/8fa4e312-97f1-43dc-899e-1dc0518be5dd" />
 
-A database for [_Crush_](https://github.com/charmbracelet/crush)-compatible models.
+[Crush](https://github.com/purpose168/crush-cn) 兼容模型的数据库。
 
-Is there a provider you’d like to see in Crush? Is there an existing model that needs an update? This is a community-supported project and we welcome and encourge contributions.
+你希望在 Crush 中看到某个提供商吗？是否有需要更新的现有模型？这是一个社区支持的项目，我们欢迎并鼓励贡献。
 
-## Whatcha think?
+## 你觉得怎么样？
 
-We’d love to hear your thoughts on this project. Need help? We gotchu. You can find us on:
+我们很想听听你对这个项目的想法。需要帮助吗？我们在这里。你可以在以下平台找到我们：
 
 - [Twitter](https://twitter.com/charmcli)
 - [Discord][discord]
 - [Slack](https://charm.land/slack)
-- [The Fediverse](https://mastodon.social/@charmcli)
+- [联邦宇宙](https://mastodon.social/@charmcli)
 
 [discord]: https://charm.land/discord
 
-## License
+## 许可证
 
-[MIT](https://github.com/charmbracelet/catwalk/raw/main/LICENSE)
+[MIT](https://github.com/purpose168/catwalk-cn/raw/main/LICENSE)
 
----
 
-Part of [Charm](https://charm.land).
-
-<a href="https://charm.land/"><img alt="The Charm logo" width="400" src="https://stuff.charm.sh/charm-banner-next.jpg" /></a>
-
-<!--prettier-ignore-->
-Charm热爱开源 • Charm loves open source

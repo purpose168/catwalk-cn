@@ -1,5 +1,5 @@
-// Package main provides a command-line tool to fetch models from Synthetic
-// and generate a configuration file for the provider.
+// Package main 提供了一个命令行工具，用于从 Synthetic 获取模型
+// 并为提供程序生成配置文件。
 package main
 
 import (
@@ -15,10 +15,10 @@ import (
 	"strings"
 	"time"
 
-	"charm.land/catwalk/pkg/catwalk"
+	"github.com/purpose168/catwalk-cn/pkg/catwalk"
 )
 
-// Model represents a model from the Synthetic API.
+// Model 表示来自 Synthetic API 的模型。
 type Model struct {
 	ID                string   `json:"id"`
 	Name              string   `json:"name"`
@@ -30,7 +30,7 @@ type Model struct {
 	SupportedFeatures []string `json:"supported_features,omitempty"`
 }
 
-// Pricing contains the pricing information for different operations.
+// Pricing 包含不同操作的定价信息。
 type Pricing struct {
 	Prompt           string `json:"prompt"`
 	Completion       string `json:"completion"`
@@ -40,13 +40,12 @@ type Pricing struct {
 	InputCacheWrites string `json:"input_cache_writes"`
 }
 
-// ModelsResponse is the response structure for the Synthetic models API.
+// ModelsResponse 是 Synthetic 模型 API 的响应结构。
 type ModelsResponse struct {
 	Data []Model `json:"data"`
 }
 
-// ModelPricing is the pricing structure for a model, detailing costs per
-// million tokens for input and output, both cached and uncached.
+// ModelPricing 是模型的定价结构，详细说明了每百万令牌的输入和输出成本，包括缓存和非缓存。
 type ModelPricing struct {
 	CostPer1MIn        float64 `json:"cost_per_1m_in"`
 	CostPer1MOut       float64 `json:"cost_per_1m_out"`
@@ -54,7 +53,7 @@ type ModelPricing struct {
 	CostPer1MOutCached float64 `json:"cost_per_1m_out_cached"`
 }
 
-// parsePrice extracts a float from Synthetic's price format (e.g. "$0.00000055").
+// parsePrice 从 Synthetic 的价格格式（例如 "$0.00000055"）中提取浮点数。
 func parsePrice(s string) float64 {
 	s = strings.TrimPrefix(s, "$")
 	v, err := strconv.ParseFloat(s, 64)
@@ -64,6 +63,7 @@ func parsePrice(s string) float64 {
 	return v
 }
 
+// getPricing 获取模型的定价信息
 func getPricing(model Model) ModelPricing {
 	return ModelPricing{
 		CostPer1MIn:        parsePrice(model.Pricing.Prompt) * 1_000_000,
@@ -73,12 +73,11 @@ func getPricing(model Model) ModelPricing {
 	}
 }
 
-// applyModelOverrides sets supported_features for models where Synthetic
-// omits this metadata.
-// TODO: Remove this when they add the missing metadata.
+// applyModelOverrides 为 Synthetic 省略元数据的模型设置 supported_features。
+// TODO: 当他们添加缺失的元数据时，删除此函数。
 func applyModelOverrides(model *Model) {
 	switch {
-	// All of llama support tools, none do reasoning yet
+	// 所有 llama 模型都支持工具，但目前都不支持推理
 	case strings.HasPrefix(model.ID, "hf:meta-llama/Llama-"):
 		model.SupportedFeatures = []string{"tools"}
 
@@ -100,12 +99,11 @@ func applyModelOverrides(model *Model) {
 	case strings.HasPrefix(model.ID, "hf:Qwen/Qwen3-235B-A22B-Instruct"):
 		model.SupportedFeatures = []string{"tools", "reasoning"}
 
-	// The rest of Qwen3 don't support reasoning but do tools
+	// 其余的 Qwen3 模型不支持推理，但支持工具
 	case strings.HasPrefix(model.ID, "hf:Qwen/Qwen3"):
 		model.SupportedFeatures = []string{"tools"}
 
-	// Has correct metadata already, but the following k2 matchers would
-	// override it to omit reasoning
+	// 已经有正确的元数据，但下面的 k2 匹配器会覆盖它以省略推理
 	case strings.HasPrefix(model.ID, "hf:moonshotai/Kimi-K2-Thinking"):
 		model.SupportedFeatures = []string{"tools", "reasoning"}
 
@@ -126,6 +124,7 @@ func applyModelOverrides(model *Model) {
 	}
 }
 
+// fetchSyntheticModels 获取 Synthetic 模型列表
 func fetchSyntheticModels(apiEndpoint string) (*ModelsResponse, error) {
 	client := &http.Client{Timeout: 30 * time.Second}
 	req, _ := http.NewRequestWithContext(context.Background(), "GET", apiEndpoint+"/models", nil)
@@ -137,7 +136,7 @@ func fetchSyntheticModels(apiEndpoint string) (*ModelsResponse, error) {
 	defer resp.Body.Close() //nolint:errcheck
 	if resp.StatusCode != 200 {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("status %d: %s", resp.StatusCode, body)
+		return nil, fmt.Errorf("状态码 %d: %s", resp.StatusCode, body)
 	}
 	var mr ModelsResponse
 	if err := json.NewDecoder(resp.Body).Decode(&mr); err != nil {
@@ -146,7 +145,7 @@ func fetchSyntheticModels(apiEndpoint string) (*ModelsResponse, error) {
 	return &mr, nil
 }
 
-// This is used to generate the synthetic.json config file.
+// 用于生成 synthetic.json 配置文件。
 func main() {
 	syntheticProvider := catwalk.Provider{
 		Name:                "Synthetic",
@@ -161,27 +160,27 @@ func main() {
 
 	modelsResp, err := fetchSyntheticModels(syntheticProvider.APIEndpoint)
 	if err != nil {
-		log.Fatal("Error fetching Synthetic models:", err)
+		log.Fatal("获取 Synthetic 模型时出错:", err)
 	}
 
-	// Apply overrides for models missing supported_features metadata
+	// 为缺少 supported_features 元数据的模型应用覆盖
 	for i := range modelsResp.Data {
 		applyModelOverrides(&modelsResp.Data[i])
 	}
 
 	for _, model := range modelsResp.Data {
-		// Skip models with small context windows
+		// 跳过上下文窗口较小的模型
 		if model.ContextLength < 20000 {
 			continue
 		}
 
-		// Skip non-text models
+		// 跳过非文本模型
 		if !slices.Contains(model.InputModalities, "text") ||
 			!slices.Contains(model.OutputModalities, "text") {
 			continue
 		}
 
-		// Ensure they support tools
+		// 确保它们支持工具
 		supportsTools := slices.Contains(model.SupportedFeatures, "tools")
 		if !supportsTools {
 			continue
@@ -199,12 +198,12 @@ func main() {
 			defaultReasoning = "medium"
 		}
 
-		// Strip everything before the first / for a cleaner name
+		// 去除第一个 / 之前的所有内容，以获得更简洁的名称
 		modelName := model.Name
 		if idx := strings.Index(model.Name, "/"); idx != -1 {
 			modelName = model.Name[idx+1:]
 		}
-		// Replace hyphens with spaces
+		// 将连字符替换为空格
 		modelName = strings.ReplaceAll(modelName, "-", " ")
 
 		m := catwalk.Model{
@@ -221,8 +220,7 @@ func main() {
 			SupportsImages:         supportsImages,
 		}
 
-		// Set max tokens based on max_output_length if available, but cap at
-		// 15% of context length
+		// 如果 max_output_length 可用，则基于它设置最大令牌数，但上限为上下文长度的 15%
 		maxFromOutput := model.MaxOutputLength / 2
 		maxAt15Pct := (model.ContextLength * 15) / 100
 		if model.MaxOutputLength > 0 && maxFromOutput <= maxAt15Pct {
@@ -232,7 +230,7 @@ func main() {
 		}
 
 		syntheticProvider.Models = append(syntheticProvider.Models, m)
-		fmt.Printf("Added model %s with context window %d\n",
+		fmt.Printf("已添加模型 %s，上下文窗口为 %d\n",
 			model.ID, model.ContextLength)
 	}
 
@@ -240,15 +238,15 @@ func main() {
 		return strings.Compare(a.Name, b.Name)
 	})
 
-	// Save the JSON in internal/providers/configs/synthetic.json
+	// 将 JSON 保存到 internal/providers/configs/synthetic.json
 	data, err := json.MarshalIndent(syntheticProvider, "", "  ")
 	if err != nil {
-		log.Fatal("Error marshaling Synthetic provider:", err)
+		log.Fatal("序列化 Synthetic 提供程序时出错:", err)
 	}
 
 	if err := os.WriteFile("internal/providers/configs/synthetic.json", data, 0o600); err != nil {
-		log.Fatal("Error writing Synthetic provider config:", err)
+		log.Fatal("写入 Synthetic 提供程序配置时出错:", err)
 	}
 
-	fmt.Printf("Generated synthetic.json with %d models\n", len(syntheticProvider.Models))
+	fmt.Printf("已生成 synthetic.json，包含 %d 个模型\n", len(syntheticProvider.Models))
 }

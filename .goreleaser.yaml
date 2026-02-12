@@ -82,7 +82,7 @@ release:
   prerelease: auto
   footer:
     from_url:
-      url: https://raw.githubusercontent.com/charmbracelet/meta/main/footer.md
+      url: https://raw.githubusercontent.com/purpose168/meta-cn/main/footer.md
 
 changelog:
   sort: asc

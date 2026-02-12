@@ -7,7 +7,7 @@ on:
 
 jobs:
   goreleaser:
-    uses: charmbracelet/meta/.github/workflows/nightly.yml@main
+    uses: purpose168/meta-cn/.github/workflows/nightly.yml@main
     with:
       go_version: stable
       upload_artifacts: false

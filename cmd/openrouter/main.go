@@ -1,5 +1,5 @@
-// Package main provides a command-line tool to fetch models from OpenRouter
-// and generate a configuration file for the provider.
+// Package main 提供了一个命令行工具，用于从 OpenRouter 获取模型
+// 并为提供程序生成配置文件。
 package main
 
 import (
@@ -15,10 +15,10 @@ import (
 	"strings"
 	"time"
 
-	"charm.land/catwalk/pkg/catwalk"
+	"github.com/purpose168/catwalk-cn/pkg/catwalk"
 )
 
-// Model represents the complete model configuration.
+// Model 表示完整的模型配置。
 type Model struct {
 	ID              string       `json:"id"`
 	CanonicalSlug   string       `json:"canonical_slug"`
@@ -33,7 +33,7 @@ type Model struct {
 	SupportedParams []string     `json:"supported_parameters"`
 }
 
-// Architecture defines the model's architecture details.
+// Architecture 定义了模型的架构细节。
 type Architecture struct {
 	Modality         string   `json:"modality"`
 	InputModalities  []string `json:"input_modalities"`
@@ -42,7 +42,7 @@ type Architecture struct {
 	InstructType     *string  `json:"instruct_type"`
 }
 
-// Pricing contains the pricing information for different operations.
+// Pricing 包含不同操作的定价信息。
 type Pricing struct {
 	Prompt            string `json:"prompt"`
 	Completion        string `json:"completion"`
@@ -54,14 +54,14 @@ type Pricing struct {
 	InputCacheWrite   string `json:"input_cache_write"`
 }
 
-// TopProvider describes the top provider's capabilities.
+// TopProvider 描述了顶级提供程序的能力。
 type TopProvider struct {
 	ContextLength       int64  `json:"context_length"`
 	MaxCompletionTokens *int64 `json:"max_completion_tokens"`
 	IsModerated         bool   `json:"is_moderated"`
 }
 
-// Endpoint represents a single endpoint configuration for a model.
+// Endpoint 表示模型的单个端点配置。
 type Endpoint struct {
 	Name                string   `json:"name"`
 	ContextLength       int64    `json:"context_length"`
@@ -76,7 +76,7 @@ type Endpoint struct {
 	UptimeLast30m       float64  `json:"uptime_last_30m"`
 }
 
-// EndpointsResponse is the response structure for the endpoints API.
+// EndpointsResponse 是端点 API 的响应结构。
 type EndpointsResponse struct {
 	Data struct {
 		ID          string     `json:"id"`
@@ -87,13 +87,12 @@ type EndpointsResponse struct {
 	} `json:"data"`
 }
 
-// ModelsResponse is the response structure for the models API.
+// ModelsResponse 是模型 API 的响应结构。
 type ModelsResponse struct {
 	Data []Model `json:"data"`
 }
 
-// ModelPricing is the pricing structure for a model, detailing costs per
-// million tokens for input and output, both cached and uncached.
+// ModelPricing 是模型的定价结构，详细说明了每百万令牌的输入和输出成本，包括缓存和非缓存。
 type ModelPricing struct {
 	CostPer1MIn        float64 `json:"cost_per_1m_in"`
 	CostPer1MOut       float64 `json:"cost_per_1m_out"`
@@ -101,6 +100,7 @@ type ModelPricing struct {
 	CostPer1MOutCached float64 `json:"cost_per_1m_out_cached"`
 }
 
+// getPricing 获取模型的定价信息
 func getPricing(model Model) ModelPricing {
 	pricing := ModelPricing{}
 	costPrompt, err := strconv.ParseFloat(model.Pricing.Prompt, 64)
@@ -127,6 +127,7 @@ func getPricing(model Model) ModelPricing {
 	return pricing
 }
 
+// fetchOpenRouterModels 获取 OpenRouter 模型列表
 func fetchOpenRouterModels() (*ModelsResponse, error) {
 	client := &http.Client{Timeout: 30 * time.Second}
 	req, _ := http.NewRequestWithContext(
@@ -143,7 +144,7 @@ func fetchOpenRouterModels() (*ModelsResponse, error) {
 	defer resp.Body.Close() //nolint:errcheck
 	if resp.StatusCode != 200 {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("status %d: %s", resp.StatusCode, body)
+		return nil, fmt.Errorf("状态码 %d: %s", resp.StatusCode, body)
 	}
 	var mr ModelsResponse
 	if err := json.NewDecoder(resp.Body).Decode(&mr); err != nil {
@@ -152,6 +153,7 @@ func fetchOpenRouterModels() (*ModelsResponse, error) {
 	return &mr, nil
 }
 
+// fetchModelEndpoints 获取模型的端点列表
 func fetchModelEndpoints(modelID string) (*EndpointsResponse, error) {
 	client := &http.Client{Timeout: 30 * time.Second}
 	url := fmt.Sprintf("https://openrouter.ai/api/v1/models/%s/endpoints", modelID)
@@ -169,7 +171,7 @@ func fetchModelEndpoints(modelID string) (*EndpointsResponse, error) {
 	defer resp.Body.Close() //nolint:errcheck
 	if resp.StatusCode != 200 {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("status %d: %s", resp.StatusCode, body)
+		return nil, fmt.Errorf("状态码 %d: %s", resp.StatusCode, body)
 	}
 	var er EndpointsResponse
 	if err := json.NewDecoder(resp.Body).Decode(&er); err != nil {
@@ -178,6 +180,7 @@ func fetchModelEndpoints(modelID string) (*EndpointsResponse, error) {
 	return &er, nil
 }
 
+// selectBestEndpoint 选择最佳端点
 func selectBestEndpoint(endpoints []Endpoint) *Endpoint {
 	if len(endpoints) == 0 {
 		return nil
@@ -186,7 +189,7 @@ func selectBestEndpoint(endpoints []Endpoint) *Endpoint {
 	var best *Endpoint
 	for i := range endpoints {
 		endpoint := &endpoints[i]
-		// Skip endpoints with poor status or uptime
+		// 跳过状态不佳或正常运行时间不足的端点
 		if endpoint.Status < 0 || endpoint.UptimeLast30m < 90.0 {
 			continue
 		}
@@ -209,11 +212,12 @@ func selectBestEndpoint(endpoints []Endpoint) *Endpoint {
 	return best
 }
 
+// isBetterEndpoint 判断候选端点是否比当前端点更好
 func isBetterEndpoint(candidate, current *Endpoint) bool {
 	candidateHasTools := slices.Contains(candidate.SupportedParams, "tools")
 	currentHasTools := slices.Contains(current.SupportedParams, "tools")
 
-	// Prefer endpoints with tool support over those without
+	// 优先选择支持工具的端点
 	if candidateHasTools && !currentHasTools {
 		return true
 	}
@@ -221,7 +225,7 @@ func isBetterEndpoint(candidate, current *Endpoint) bool {
 		return false
 	}
 
-	// Both have same tool support status, compare other factors
+	// 如果工具支持状态相同，则比较其他因素
 	if candidate.ContextLength > current.ContextLength {
 		return true
 	}
@@ -232,11 +236,11 @@ func isBetterEndpoint(candidate, current *Endpoint) bool {
 	return false
 }
 
-// This is used to generate the openrouter.json config file.
+// 用于生成 openrouter.json 配置文件。
 func main() {
 	modelsResp, err := fetchOpenRouterModels()
 	if err != nil {
-		log.Fatal("Error fetching OpenRouter models:", err)
+		log.Fatal("获取 OpenRouter 模型时出错:", err)
 	}
 
 	openRouterProvider := catwalk.Provider{
@@ -258,18 +262,18 @@ func main() {
 		if model.ContextLength < 20000 {
 			continue
 		}
-		// skip non‐text models or those without tools
+		// 跳过非文本模型或不支持工具的模型
 		if !slices.Contains(model.SupportedParams, "tools") ||
 			!slices.Contains(model.Architecture.InputModalities, "text") ||
 			!slices.Contains(model.Architecture.OutputModalities, "text") {
 			continue
 		}
 
-		// Fetch endpoints for this model to get the best configuration
+		// 获取此模型的端点以获得最佳配置
 		endpointsResp, err := fetchModelEndpoints(model.ID)
 		if err != nil {
-			fmt.Printf("Warning: Failed to fetch endpoints for %s: %v\n", model.ID, err)
-			// Fall back to using the original model data
+			fmt.Printf("警告：获取 %s 的端点失败: %v\n", model.ID, err)
+			// 回退到使用原始模型数据
 			pricing := getPricing(model)
 			canReason := slices.Contains(model.SupportedParams, "reasoning")
 			supportsImages := slices.Contains(model.Architecture.InputModalities, "image")
@@ -305,19 +309,19 @@ func main() {
 			continue
 		}
 
-		// Select the best endpoint
+		// 选择最佳端点
 		bestEndpoint := selectBestEndpoint(endpointsResp.Data.Endpoints)
 		if bestEndpoint == nil {
-			fmt.Printf("Warning: No suitable endpoint found for %s\n", model.ID)
+			fmt.Printf("警告：未找到 %s 的合适端点\n", model.ID)
 			continue
 		}
 
-		// Check if the best endpoint supports tools
+		// 检查最佳端点是否支持工具
 		if !slices.Contains(bestEndpoint.SupportedParams, "tools") {
 			continue
 		}
 
-		// Use the best endpoint's configuration
+		// 使用最佳端点的配置
 		pricing := ModelPricing{}
 		costPrompt, err := strconv.ParseFloat(bestEndpoint.Pricing.Prompt, 64)
 		if err != nil {
@@ -364,7 +368,7 @@ func main() {
 			SupportsImages:         supportsImages,
 		}
 
-		// Set max tokens based on the best endpoint
+		// 根据最佳端点设置最大令牌数
 		if bestEndpoint.MaxCompletionTokens != nil {
 			m.DefaultMaxTokens = *bestEndpoint.MaxCompletionTokens / 2
 		} else {
@@ -372,7 +376,7 @@ func main() {
 		}
 
 		openRouterProvider.Models = append(openRouterProvider.Models, m)
-		fmt.Printf("Added model %s with context window %d from provider %s\n",
+		fmt.Printf("已添加模型 %s，上下文窗口为 %d，来自提供程序 %s\n",
 			model.ID, bestEndpoint.ContextLength, bestEndpoint.ProviderName)
 	}
 
@@ -380,13 +384,13 @@ func main() {
 		return strings.Compare(a.Name, b.Name)
 	})
 
-	// save the json in internal/providers/config/openrouter.json
+	// 将 JSON 保存到 internal/providers/config/openrouter.json
 	data, err := json.MarshalIndent(openRouterProvider, "", "  ")
 	if err != nil {
-		log.Fatal("Error marshaling OpenRouter provider:", err)
+		log.Fatal("序列化 OpenRouter 提供程序时出错:", err)
 	}
-	// write to file
+	// 写入文件
 	if err := os.WriteFile("internal/providers/configs/openrouter.json", data, 0o600); err != nil {
-		log.Fatal("Error writing OpenRouter provider config:", err)
+		log.Fatal("写入 OpenRouter 提供程序配置时出错:", err)
 	}
 }

@@ -3,8 +3,8 @@
 package embedded
 
 import (
-	"charm.land/catwalk/internal/providers"
-	"charm.land/catwalk/pkg/catwalk"
+	"github.com/purpose168/catwalk-cn/internal/providers"
+	"github.com/purpose168/catwalk-cn/pkg/catwalk"
 )
 
 // GetAll returns all embedded providers.

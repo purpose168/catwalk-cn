@@ -8,12 +8,12 @@ import (
 	"net/http"
 	"time"
 
-	"charm.land/catwalk/internal/deprecated"
-	"charm.land/catwalk/internal/providers"
-	"github.com/charmbracelet/x/etag"
+	"github.com/purpose168/catwalk-cn/internal/deprecated"
+	"github.com/purpose168/catwalk-cn/internal/providers"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/purpose168/charm-experimental-packages-cn/etag"
 )
 
 var counter = promauto.NewCounter(prometheus.CounterOpts{

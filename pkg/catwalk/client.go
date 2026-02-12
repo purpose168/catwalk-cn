@@ -9,24 +9,24 @@ import (
 	"os"
 	"time"
 
-	xetag "github.com/charmbracelet/x/etag"
+	xetag "github.com/purpose168/charm-experimental-packages-cn/etag"
 )
 
 const defaultURL = "http://localhost:8080"
 
-// Client represents a client for the catwalk service.
+// Client 表示catwalk服务的客户端
 type Client struct {
-	baseURL    string
-	httpClient *http.Client
+	baseURL    string       // 服务基础URL
+	httpClient *http.Client // HTTP客户端实例
 }
 
-// New creates a new client instance
-// Uses CATWALK_URL environment variable or falls back to localhost:8080.
+// New 创建一个新的客户端实例
+// 使用CATWALK_URL环境变量，如果未设置则回退到localhost:8080
 func New() *Client {
 	return NewWithURL(cmp.Or(os.Getenv("CATWALK_URL"), defaultURL))
 }
 
-// NewWithURL creates a new client with a specific URL.
+// NewWithURL 使用指定的URL创建一个新的客户端
 func NewWithURL(url string) *Client {
 	return &Client{
 		baseURL: url,
@@ -36,14 +36,13 @@ func NewWithURL(url string) *Client {
 	}
 }
 
-// ErrNotModified happens when the given ETag matches the server, so no update
-// is needed.
-var ErrNotModified = fmt.Errorf("not modified")
+// ErrNotModified 当给定的ETag与服务器匹配时发生，表示不需要更新
+var ErrNotModified = fmt.Errorf("未修改")
 
-// Etag returns the ETag for the given data.
+// Etag 返回给定数据的ETag
 func Etag(data []byte) string { return xetag.Of(data) }
 
-// GetProviders retrieves all available providers from the service.
+// GetProviders 从服务中检索所有可用的AI提供商
 func (c *Client) GetProviders(ctx context.Context, etag string) ([]Provider, error) {
 	req, err := http.NewRequestWithContext(
 		ctx,
@@ -52,13 +51,13 @@ func (c *Client) GetProviders(ctx context.Context, etag string) ([]Provider, err
 		nil,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not create request: %w", err)
+		return nil, fmt.Errorf("无法创建请求: %w", err)
 	}
 	xetag.Request(req, etag)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to make request: %w", err)
+		return nil, fmt.Errorf("请求失败: %w", err)
 	}
 	defer resp.Body.Close() //nolint:errcheck
 
@@ -67,12 +66,12 @@ func (c *Client) GetProviders(ctx context.Context, etag string) ([]Provider, err
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		return nil, fmt.Errorf("意外的状态码: %d", resp.StatusCode)
 	}
 
 	var providers []Provider
 	if err := json.NewDecoder(resp.Body).Decode(&providers); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
+		return nil, fmt.Errorf("响应解码失败: %w", err)
 	}
 
 	return providers, nil

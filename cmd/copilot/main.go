@@ -1,4 +1,4 @@
-// Package main implements a tool to fetch GitHub Copilot models and generate a Catwalk provider configuration.
+// Package main 实现了一个工具，用于获取 GitHub Copilot 模型并生成 Catwalk 提供程序配置。
 package main
 
 import (
@@ -15,30 +15,35 @@ import (
 	"strings"
 	"time"
 
-	"charm.land/catwalk/pkg/catwalk"
+	"github.com/purpose168/catwalk-cn/pkg/catwalk"
 )
 
+// Response 表示 API 返回的响应结构
 type Response struct {
 	Object string  `json:"object"`
 	Data   []Model `json:"data"`
 }
 
+// APITokenResponse 表示 API 令牌响应结构
 type APITokenResponse struct {
 	Token     string                    `json:"token"`
 	ExpiresAt int64                     `json:"expires_at"`
 	Endpoints APITokenResponseEndpoints `json:"endpoints"`
 }
 
+// APITokenResponseEndpoints 表示 API 令牌响应中的端点信息
 type APITokenResponseEndpoints struct {
 	API string `json:"api"`
 }
 
+// APIToken 表示 API 令牌结构
 type APIToken struct {
 	APIKey      string
 	ExpiresAt   time.Time
 	APIEndpoint string
 }
 
+// Model 表示模型信息结构
 type Model struct {
 	ID                 string     `json:"id"`
 	Name               string     `json:"name"`
@@ -50,6 +55,7 @@ type Model struct {
 	Policy             *Policy    `json:"policy,omitempty"`
 }
 
+// Capability 表示模型能力结构
 type Capability struct {
 	Family    string   `json:"family"`
 	Type      string   `json:"type"`
@@ -58,18 +64,21 @@ type Capability struct {
 	Supports  Supports `json:"supports"`
 }
 
+// Limits 表示模型限制结构
 type Limits struct {
 	MaxContextWindowTokens int `json:"max_context_window_tokens,omitempty"`
 	MaxOutputTokens        int `json:"max_output_tokens,omitempty"`
 	MaxPromptTokens        int `json:"max_prompt_tokens,omitempty"`
 }
 
+// Supports 表示模型支持的功能结构
 type Supports struct {
 	ToolCalls         bool `json:"tool_calls,omitempty"`
 	ParallelToolCalls bool `json:"parallel_tool_calls,omitempty"`
 	Vision            bool `json:"vision,omitempty"`
 }
 
+// Policy 表示模型策略结构
 type Policy struct {
 	State string `json:"state"`
 	Terms string `json:"terms"`
@@ -77,6 +86,7 @@ type Policy struct {
 
 var versionedModelRegexp = regexp.MustCompile(`-\d{4}-\d{2}-\d{2}$`)
 
+// main 是程序的入口函数
 func main() {
 	if err := run(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
@@ -84,13 +94,14 @@ func main() {
 	}
 }
 
+// run 是程序的主要执行函数
 func run() error {
 	copilotModels, err := fetchCopilotModels()
 	if err != nil {
 		return err
 	}
 
-	// NOTE(@andreynering): Exclude versioned models and keep only the main version of each.
+	// NOTE(@andreynering): 排除版本化模型，只保留每个模型的主版本。
 	copilotModels = slices.DeleteFunc(copilotModels, func(m Model) bool {
 		return m.ID != m.Version || versionedModelRegexp.MatchString(m.ID) || strings.Contains(m.ID, "embedding")
 	})
@@ -111,59 +122,60 @@ func run() error {
 	}
 	data, err := json.MarshalIndent(provider, "", "  ")
 	if err != nil {
-		return fmt.Errorf("unable to marshal json: %w", err)
+		return fmt.Errorf("无法序列化 JSON: %w", err)
 	}
 	data = append(data, '\n')
 	if err := os.WriteFile("internal/providers/configs/copilot.json", data, 0o600); err != nil {
-		return fmt.Errorf("unable to write copilog.json: %w", err)
+		return fmt.Errorf("无法写入 copilot.json: %w", err)
 	}
 	return nil
 }
 
+// fetchCopilotModels 用于获取 Copilot 模型列表
 func fetchCopilotModels() ([]Model, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	oauthToken := copilotToken()
 	if oauthToken == "" {
-		return nil, fmt.Errorf("no OAuth token available")
+		return nil, fmt.Errorf("没有可用的 OAuth 令牌")
 	}
 
-	// Step 1: Fetch API token from the token endpoint
+	// 步骤1：从令牌端点获取 API 令牌
 	tokenURL := "https://api.github.com/copilot_internal/v2/token" //nolint:gosec
 	tokenReq, err := http.NewRequestWithContext(ctx, "GET", tokenURL, nil)
 	if err != nil {
-		return nil, fmt.Errorf("unable to create token request: %w", err)
+		return nil, fmt.Errorf("无法创建令牌请求: %w", err)
 	}
 	tokenReq.Header.Set("Accept", "application/json")
 	tokenReq.Header.Set("Authorization", fmt.Sprintf("token %s", oauthToken))
 
-	// Use approved integration ID to bypass client check
+	// 使用已批准的集成 ID 绕过客户端检查
 	tokenReq.Header.Set("Copilot-Integration-Id", "vscode-chat")
 	tokenReq.Header.Set("User-Agent", "GitHubCopilotChat/0.1")
 
 	client := &http.Client{}
 	tokenResp, err := client.Do(tokenReq)
 	if err != nil {
-		return nil, fmt.Errorf("unable to make token request: %w", err)
+		return nil, fmt.Errorf("无法发送令牌请求: %w", err)
 	}
 	defer tokenResp.Body.Close() //nolint:errcheck
 
 	tokenBody, err := io.ReadAll(tokenResp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("unable to read token response body: %w", err)
+		return nil, fmt.Errorf("无法读取令牌响应体: %w", err)
 	}
 
 	if tokenResp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code from token endpoint: %d", tokenResp.StatusCode)
+		return nil, fmt.Errorf("令牌端点返回意外状态码: %d", tokenResp.StatusCode)
 	}
 
 	var tokenData APITokenResponse
 	if err := json.Unmarshal(tokenBody, &tokenData); err != nil {
-		return nil, fmt.Errorf("unable to unmarshal token response: %w", err)
+		return nil, fmt.Errorf("无法解析令牌响应: %w", err)
 	}
 
-	// Convert to APIToken
+	// 转换为 APIToken 类型
 	expiresAt := time.Unix(tokenData.ExpiresAt, 0)
 	apiToken := APIToken{
 		APIKey:      tokenData.Token,
@@ -171,11 +183,11 @@ func fetchCopilotModels() ([]Model, error) {
 		APIEndpoint: tokenData.Endpoints.API,
 	}
 
-	// Step 2: Use the dynamic endpoint from the token to fetch models
+	// 步骤2：使用令牌中的动态端点获取模型列表
 	modelsURL := apiToken.APIEndpoint + "/models"
 	modelsReq, err := http.NewRequestWithContext(ctx, "GET", modelsURL, nil)
 	if err != nil {
-		return nil, fmt.Errorf("unable to create models request: %w", err)
+		return nil, fmt.Errorf("无法创建模型请求: %w", err)
 	}
 	modelsReq.Header.Set("Accept", "application/json")
 	modelsReq.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiToken.APIKey))
@@ -184,30 +196,31 @@ func fetchCopilotModels() ([]Model, error) {
 
 	modelsResp, err := client.Do(modelsReq)
 	if err != nil {
-		return nil, fmt.Errorf("unable to make models request: %w", err)
+		return nil, fmt.Errorf("无法发送模型请求: %w", err)
 	}
 	defer modelsResp.Body.Close() //nolint:errcheck
 
 	modelsBody, err := io.ReadAll(modelsResp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("unable to read models response body: %w", err)
+		return nil, fmt.Errorf("无法读取模型响应体: %w", err)
 	}
 
 	if modelsResp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code from models endpoint: %d", modelsResp.StatusCode)
+		return nil, fmt.Errorf("模型端点返回意外状态码: %d", modelsResp.StatusCode)
 	}
 
-	// for debugging
+	// 用于调试
 	_ = os.MkdirAll("tmp", 0o700)
 	_ = os.WriteFile("tmp/copilot-response.json", modelsBody, 0o600)
 
 	var data Response
 	if err := json.Unmarshal(modelsBody, &data); err != nil {
-		return nil, fmt.Errorf("unable to unmarshal json: %w", err)
+		return nil, fmt.Errorf("无法解析 JSON: %w", err)
 	}
 	return data.Data, nil
 }
 
+// modelsToCatwalk 将 Copilot 模型转换为 Catwalk 模型
 func modelsToCatwalk(m []Model) []catwalk.Model {
 	models := make([]catwalk.Model, 0, len(m))
 	for _, model := range m {
@@ -216,6 +229,7 @@ func modelsToCatwalk(m []Model) []catwalk.Model {
 	return models
 }
 
+// modelToCatwalk 将单个 Copilot 模型转换为 Catwalk 模型
 func modelToCatwalk(m Model) catwalk.Model {
 	return catwalk.Model{
 		ID:               m.ID,
@@ -226,6 +240,7 @@ func modelToCatwalk(m Model) catwalk.Model {
 	}
 }
 
+// copilotToken 获取 Copilot 令牌
 func copilotToken() string {
 	if token := os.Getenv("COPILOT_TOKEN"); token != "" {
 		return token
@@ -233,6 +248,7 @@ func copilotToken() string {
 	return tokenFromDisk()
 }
 
+// tokenFromDisk 从磁盘读取令牌
 func tokenFromDisk() string {
 	data, err := os.ReadFile(tokenFilePath())
 	if err != nil {
@@ -252,6 +268,7 @@ func tokenFromDisk() string {
 	return ""
 }
 
+// tokenFilePath 获取令牌文件路径
 func tokenFilePath() string {
 	switch runtime.GOOS {
 	case "windows":
